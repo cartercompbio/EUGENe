@@ -98,7 +98,13 @@ def add_subparser_args(subparsers: argparse._SubParsersAction) -> argparse.Argum
         parents=[parent_parser],  # Inherit from the parent parser
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-
+    subparser_commands.add_parser(
+        "regions",
+        description="Prepares a dataset from input regions files and optional signal.",
+        help="Prepares a dataset from input regions files.",
+        parents=[parent_parser],  # Inherit from the parent parser
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     # You can add more subcommands here in a similar way, e.g., "regions", "binarized_regions"
     # subparser_commands.add_parser(...)
 

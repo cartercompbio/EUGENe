@@ -93,6 +93,7 @@ def correlate_cnt_with_continuous(
     covariate,
     normalize=False,
     method="pearson",
+    nan_policy='omit',
 ):
     """Calculate the correlation between two variables.
 
@@ -106,6 +107,8 @@ def correlate_cnt_with_continuous(
         Whether to normalize the count so that it sums to 1.
     method: str
         The method to use for correlation. Options are "pearson", "spearman", and "kendall".
+    nan_policy: str
+        The policy for handling NaN values. Options are "omit" and "raise".
 
     Returns
     -------
@@ -118,6 +121,13 @@ def correlate_cnt_with_continuous(
     if normalize:
         cnt = cnt / cnt.sum()
 
+    if nan_policy == "omit":
+        nan_msk = np.isnan(covariate) | np.isnan(cnt)
+        cnt = cnt[~nan_msk]
+        covariate = covariate[~nan_msk]
+    if nan_policy == "raise":
+        if np.isnan(covariate).any() or np.isnan(cnt).any():
+            raise ValueError("NaN values found in the data")
     if method == "pearson":
         return pearsonr(cnt, covariate)
     elif method == "spearman":
@@ -132,6 +142,7 @@ def run_continuous_correlations(
     cnts: np.ndarray,
     covariate: np.ndarray,
     method: str = "pearson",
+    nan_policy: str = "omit",
 ):
     """Calculate the correlation between each column of counts and a continuous covariate.
 
@@ -143,6 +154,8 @@ def run_continuous_correlations(
         The continuous variable as a 1D numpy array.
     method: str
         The method to use for correlation. Options are "pearson", "spearman", and "kendall".
+    nan_policy: str
+        The policy for handling NaN values. Options are "omit" and "raise".
 
     Returns
     -------
@@ -154,7 +167,7 @@ def run_continuous_correlations(
     pvals = np.zeros(n)
 
     for i in range(n):
-        corrs[i], pvals[i] = correlate_cnt_with_continuous(cnts[:, i], covariate, method=method)
+        corrs[i], pvals[i] = correlate_cnt_with_continuous(cnts[:, i], covariate, method=method, nan_policy=nan_policy)
 
     return corrs, pvals
 
@@ -164,6 +177,7 @@ def correlate_cnt_with_binary(
     binary,
     normalize=False,
     method="mannwhitneyu",
+    nan_policy='omit',
 ):
     """Calculate the correlation between a count variable and a binary variable.
 
@@ -190,17 +204,18 @@ def correlate_cnt_with_binary(
         cnt = cnt / cnt.sum()
 
     if method == "mannwhitneyu":
-        return mannwhitneyu(cnt, binary)
+        return mannwhitneyu(cnt, binary, nan_policy=nan_policy)
     elif method == "ttest_ind":
-        return ttest_ind(cnt, binary)
+        return ttest_ind(cnt, binary, nan_policy=nan_policy)
     elif method in ["pearson", "spearman", "kendall"]:
-        return correlate_cnt_with_continuous(cnt, binary, normalize=normalize, method=method)
+        return correlate_cnt_with_continuous(cnt, binary, normalize=normalize, method=method, nan_policy=nan_policy)
     
 
 def run_binary_correlations(
     cnts: np.ndarray,
     binary: np.ndarray,
     method: str = "mannwhitneyu",
+    nan_policy: str = "omit",
 ):
     """Calculate the correlation between each column of counts and a binary covariate.
 
@@ -212,6 +227,8 @@ def run_binary_correlations(
         The binary variable as a 1D numpy array.
     method: str
         The method to use for correlation. Options are "mannwhitneyu" and "ttest_ind".
+    nan_policy: str
+        The policy for handling NaN values. Options are "omit" and "raise".
 
     Returns
     -------
@@ -223,7 +240,7 @@ def run_binary_correlations(
     pvals = np.zeros(n)
 
     for i in range(n):
-        corrs[i], pvals[i] = correlate_cnt_with_binary(cnts[:, i], binary, method=method)
+        corrs[i], pvals[i] = correlate_cnt_with_binary(cnts[:, i], binary, method=method, nan_policy=nan_policy)
 
     return corrs, pvals
 
@@ -233,6 +250,7 @@ def correlate_cnt_with_categorical(
     categorical,
     normalize=False,
     method="kruskal",
+    nan_policy='omit',
 ):
     """Calculate the correlation between a count variable and a categorical variable.
 
@@ -246,6 +264,8 @@ def correlate_cnt_with_categorical(
         Whether to normalize the count so that it sums to 1.
     method: str
         The method to use for correlation. Options are "kruskal" and "f_oneway".
+    nan_policy: str
+        The policy for handling NaN values. Options are "omit" and "raise".
 
     Returns
     -------
@@ -259,9 +279,9 @@ def correlate_cnt_with_categorical(
         cnt = cnt / cnt.sum()
 
     if method == "kruskal":
-        return kruskal(*[cnt[categorical == i] for i in np.unique(categorical)])
+        return kruskal(*[cnt[categorical == i] for i in np.unique(categorical)], nan_policy=nan_policy)
     elif method == "f_oneway":
-        return f_oneway(*[cnt[categorical == i] for i in np.unique(categorical)])
+        return f_oneway(*[cnt[categorical == i] for i in np.unique(categorical)], nan_policy=nan_policy)
     else:
         raise ValueError(f"Unknown method: {method}")
     
@@ -270,6 +290,7 @@ def run_categorical_correlations(
     cnts: np.ndarray,
     categorical: np.ndarray,
     method: str = "kruskal",
+    nan_policy: str = "omit",
 ):
     """Calculate the correlation between each column of counts and a categorical covariate.
 
@@ -281,6 +302,8 @@ def run_categorical_correlations(
         The categorical variable as a 1D numpy array.
     method: str
         The method to use for correlation. Options are "kruskal" and "f_oneway".
+    nan_policy: str
+        The policy for handling NaN values. Options are "omit" and "raise".
 
     Returns
     -------
@@ -292,6 +315,6 @@ def run_categorical_correlations(
     pvals = np.zeros(n)
 
     for i in range(n):
-        corrs[i], pvals[i] = correlate_cnt_with_categorical(cnts[:, i], categorical, method=method)
+        corrs[i], pvals[i] = correlate_cnt_with_categorical(cnts[:, i], categorical, method=method, nan_policy=nan_policy)
 
     return corrs, pvals

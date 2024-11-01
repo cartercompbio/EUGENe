@@ -57,6 +57,11 @@ def run_prep_dataset(args: argparse.Namespace):
             from eugene.prep_dataset.tabular import main
             main(params, path_out, overwrite)
 
+        elif args.command == "regions":
+            logger.info("Subcommand 'regions' detected. Preparing regions dataset...")
+            from eugene.prep_dataset.regions import main
+            main(params, path_out, overwrite)
+
         # Log the end time
         logger.info("Completed prep-dataset")
         logger.info(datetime.now().strftime("%Y-%m-%d %H:%M:%S\n"))
