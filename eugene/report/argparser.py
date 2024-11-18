@@ -1,6 +1,6 @@
 import argparse
 
-from eugene.prep_dataset import consts
+from eugene.report import consts
 
 # Define the parent parser with the common arguments
 def get_parent_parser() -> argparse.ArgumentParser:
@@ -64,27 +64,27 @@ def get_parent_parser() -> argparse.ArgumentParser:
 
 
 def add_subparser_args(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
-    """Add tool-specific arguments for prep-dataset.
+    """Add tool-specific arguments for report.
 
     Args:
-        subparsers: Parser object before addition of arguments specific to prep-dataset.
+        subparsers: Parser object before addition of arguments specific to report.
 
     Returns:
         parser: Parser object with additional parameters.
     """
 
-    # Create a subparser for the main "prep-dataset" command
+    # Create a subparser for the main "report" command
     subparser = subparsers.add_parser(
-        "prep-dataset",
-        description="Generates training, validation and testing datasets.",
-        help="Subcommand to prepare datasets for training. Will also generate a report of the input data.",
+        "report",
+        description="Generate a dashboard report for analysis.",
+        help="Subcommand to report a model to a dataset. Will also generate a report of the input data.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    # Create subparsers under "prep-dataset"
+    # Create subparsers under "report"
     subparser_commands = subparser.add_subparsers(
         title="sub-commands", 
-        description="Valid prep-dataset commands are 'tabular', 'tracks', and 'regions_sets'", 
+        description="Valid report commands are 'prep-dataset', 'fit", 
         dest="command",
         required=True,
     )
@@ -94,16 +94,9 @@ def add_subparser_args(subparsers: argparse._SubParsersAction) -> argparse.Argum
 
     # Add subcommand-specific parsers that inherit from the parent parser
     subparser_commands.add_parser(
-        "tabular",
-        description="Prepares a dataset from input tabular files.",
-        help="Prepares a dataset from input tabular files. These files should contain sequences and labels.",
-        parents=[parent_parser],  # Inherit from the parent parser
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    subparser_commands.add_parser(
-        "tracks",
-        description="Prepares a dataset from input regions and signal.",
-        help="Prepares a dataset from input tracks files.",
+        "prep-dataset",
+        description="Build a report on the output of a prep-dataset command.",
+        help="Build a report on the output of a prep-dataset command.",
         parents=[parent_parser],  # Inherit from the parent parser
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

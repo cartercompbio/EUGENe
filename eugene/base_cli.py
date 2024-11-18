@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from typing import Dict
 
 # New tools should be added to this list.
-TOOL_NAME_LIST = ["prep-dataset"]
+TOOL_NAME_LIST = ["prep-dataset", "fit", "report"]
 
 
 def read(rel_path):

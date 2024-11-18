@@ -1,4 +1,4 @@
-"""Single run of prep-dataset, given input arguments."""
+"""Single run of fit, given input arguments."""
 
 import argparse
 import logging
@@ -18,13 +18,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # This needs to be after matplotlib.use('Agg')
 import seaborn as sns
 
-from eugene.prep_dataset import consts
+from eugene.fit import consts
 
 logger = logging.getLogger("eugene")
 
 
-def run_prep_dataset(args: argparse.Namespace):
-    """The full script for the command line tool prep-dataset.
+def run_fit(args: argparse.Namespace):
+    """The full script for the command line tool fit.
 
     Args:
         args: Inputs from the command line, already parsed using argparse.
@@ -35,7 +35,7 @@ def run_prep_dataset(args: argparse.Namespace):
     try:
         # Log the start time.
         logger.info(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        logger.info("Running prep-dataset")
+        logger.info("Running fit")
 
         # Get params
         params = args.params_file
@@ -53,18 +53,13 @@ def run_prep_dataset(args: argparse.Namespace):
         logger.info(f"Overwrite: {overwrite}")
 
         # Get subcommand
-        if args.command == "tabular":
-            logger.info("Subcommand 'tabular' detected. Preparing tabular dataset...")
-            from eugene.prep_dataset.tabular import main
-            main(params, path_out, overwrite)
-
-        elif args.command == "tracks":
-            logger.info("Subcommand 'tracks' detected. Preparing tracks dataset...")
-            from eugene.prep_dataset.tracks import main
+        if args.command == "bpnet-lite":
+            logger.info("Subcommand 'bpnet-lite' detected. Training bpnet-lite model...")
+            from eugene.fit.bpnet_lite import main
             main(params, path_out, overwrite)
 
         # Log the end time
-        logger.info("Completed prep-dataset")
+        logger.info("Completed fit")
         logger.info(datetime.now().strftime("%Y-%m-%d %H:%M:%S\n"))
 
     # The exception allows user to end inference prematurely with CTRL-C.
