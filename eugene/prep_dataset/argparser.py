@@ -30,6 +30,13 @@ def get_parent_parser() -> argparse.ArgumentParser:
         "If it does not exist, it will be created.",
     )
     parent_parser.add_argument(
+        "-r",
+        "--report",
+        dest="report",
+        action="store_true",
+        help="Including the flag --report will generate a report of the input data.",
+    )
+    parent_parser.add_argument(
         "-w",
         "--overwrite",
         dest="overwrite",

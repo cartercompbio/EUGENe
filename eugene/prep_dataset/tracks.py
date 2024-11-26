@@ -7,14 +7,19 @@ import pandas as pd
 import xarray as xr
 import seqdata as sd
 import seqpro as sp
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
-from .utils import (
+from ..utils import (
     merge_parameters,
     infer_covariate_types,
+)
+from .utils import (
     run_continuous_correlations,
     run_binary_correlations,
     run_categorical_correlations,
 )
+from .report import generate_html_report
 
 import polygraph.sequence
 from tangermeme.match import extract_matching_loci
@@ -32,7 +37,6 @@ logger = logging.getLogger("eugene")
 default_params = {
     "seqdata": {
         "batch_size": 1000,
-        "overwrite": False,
     }
 }
 
@@ -40,6 +44,7 @@ default_params = {
 def main(
     path_params,
     path_out,
+    report=False,
     overwrite=False,
 ):
 
@@ -86,71 +91,16 @@ def main(
 
     # Build SeqData from loci
     logger.info("\tBuilding SeqData from loci and bigwig files")
-    out = os.path.join(path_out, f"{name}.seqdata")
+    out = os.path.join(path_out, f"{name}.loci.seqdata")
+    generate = True
     if os.path.exists(out):
         if not overwrite:
-            raise ValueError("SeqData already exists. Set overwrite to true in config to overwrite.")
-    sdata_loci = sd.from_region_files(
-        sd.GenomeFASTA(
-            seq_var,
-            fasta,
-            batch_size=batch_size,
-            n_threads=threads,
-        ),
-        sd.BigWig(
-            cov_var,
-            bws,
-            bw_names,
-            batch_size=batch_size,
-            n_jobs=threads,
-            threads_per_job=len(bws),
-        ),
-        path=out,
-        fixed_length=fixed_length,
-        bed=loci,
-        overwrite=overwrite,
-        max_jitter=max_jitter,
-    )
-    sdata_loci["type"] = xr.DataArray(["region"] * sdata_loci.dims["_sequence"], dims=["_sequence"])
-    sdata_loci.coords["_sequence"] = np.array([f"region_{i}" for i in range(sdata_loci.dims["_sequence"])])
-    logger.info(f"\tSuccessfully loaded tracks for {sdata_loci.dims['_sequence']} loci.\n")
-
-    #-------------- Load negative loci --------------#
-    logger.info("--- Loading tracks for negatives ---")
-    if "negatives" in params:
-
-        # Check for existing negatives bed file
-        negatives_bed = os.path.join(path_out, f"{name}.negatives.bed")
-        if os.path.exists(negatives_bed):
-            if not overwrite:
-                raise ValueError("Negatives bed file already exists. Set overwrite to true in config to overwrite.")
-            
-        # Extract negative loci
-        logger.info("\tExtracting negative loci using tangermeme extract_matching_loci function")
-        negative_loci = extract_matching_loci(
-            loci=loci,
-            fasta=params["seqdata"]["fasta"],
-            gc_bin_width=params["negatives"]["gc_bin_width"],
-            max_n_perc=params["negatives"]["max_n_perc"],
-            bigwig=params["negatives"]["signal"],
-            signal_beta=params["negatives"]["signal_beta"],
-            in_window=params["negatives"]["in_window"],
-            out_window=params["negatives"]["out_window"],
-            chroms=None,
-            random_state=random_state,
-            verbose=False
-        )
-
-        # Write negative loci to bed file
-        negative_loci.to_csv(negatives_bed, sep="\t", header=False, index=False)
-
-        # Define negative seqdata out path
-        negatives_out = os.path.join(path_out, f"{name}.negatives.seqdata")
-        logger.info(f"\tSuccesfully extracted {negative_loci.shape[0]} negative loci. Saving to {os.path.basename(negatives_bed)}")
-        
-        # Build SeqData from negatives
-        logger.info(f"\tBuilding SeqData from negatives bed and bigwig files")
-        sdata_neg = sd.from_region_files(
+            logger.info("\tSeqData already exists. Set overwrite to true in config to overwrite.")
+            generate = False
+            logger.info(f"\tLoading existing SeqData from {os.path.basename(out)}")
+            sdata_loci = sd.open_zarr(out)
+    if generate:
+        sdata_loci = sd.from_region_files(
             sd.GenomeFASTA(
                 seq_var,
                 fasta,
@@ -165,15 +115,91 @@ def main(
                 n_jobs=threads,
                 threads_per_job=len(bws),
             ),
-            path=negatives_out,
+            path=out,
             fixed_length=fixed_length,
-            bed=negatives_bed,
+            bed=loci,
             overwrite=overwrite,
             max_jitter=max_jitter,
         )
-        sdata_neg["type"] = xr.DataArray(["negative"] * sdata_neg.dims["_sequence"], dims=["_sequence"])
-        sdata_neg.coords["_sequence"] = np.array([f"negative_{i}" for i in range(sdata_neg.dims["_sequence"])])
-        logger.info(f"\tSuccessfully loaded tracks for {sdata_neg.dims['_sequence']} negatives.")
+        sdata_loci["type"] = xr.DataArray(["loci"] * sdata_loci.dims["_sequence"], dims=["_sequence"])
+        sdata_loci.coords["_sequence"] = np.array([f"loci_{i}" for i in range(sdata_loci.dims["_sequence"])])
+        logger.info(f"\tSuccessfully loaded tracks for {sdata_loci.dims['_sequence']} loci.\n")
+
+    #-------------- Load negative loci --------------#
+    logger.info("--- Loading tracks for negatives ---")
+    if "negatives" in params:
+
+        # If bed is passed in
+        if "bed" in params["negatives"]:
+            if params["negatives"]["bed"] is not None:
+                negatives_bed = params["negatives"]["bed"]
+                logger.info(f"\tLoading in passed in negatives bed file from {os.path.basename(negatives_bed)}")
+        
+        # Check for existing negatives bed file
+        else:
+            negatives_bed = os.path.join(path_out, f"{name}.negatives.bed")
+            generate = True
+            if os.path.exists(negatives_bed):
+                if not overwrite:
+                    logger.info("\tNegatives bed file already exists. Set overwrite to true in config to overwrite.")
+                    generate = False
+                    logger.info(f"\tLoading existing negatives bed file from {os.path.basename(negatives_bed)}")
+                    negative_loci = pd.read_csv(negatives_bed, sep="\t", header=None, names=["chrom", "chromStart", "chromEnd"])
+            if generate:
+                logger.info("\tExtracting negative loci using tangermeme extract_matching_loci function")
+                negative_loci = extract_matching_loci(
+                    loci=loci,
+                    fasta=params["seqdata"]["fasta"],
+                    gc_bin_width=params["negatives"]["gc_bin_width"],
+                    max_n_perc=params["negatives"]["max_n_perc"],
+                    bigwig=params["negatives"]["signal"],
+                    signal_beta=params["negatives"]["signal_beta"],
+                    in_window=params["negatives"]["in_window"],
+                    out_window=params["negatives"]["out_window"],
+                    chroms=None,
+                    random_state=random_state,
+                    verbose=False
+                )
+
+                # Write negative loci to bed file
+                logger.info(f"\tSuccesfully extracted {negative_loci.shape[0]} negative loci. Saving to {os.path.basename(negatives_bed)}")
+                negative_loci.to_csv(negatives_bed, sep="\t", header=False, index=False)
+
+        # Build SeqData from negatives
+        negatives_out = os.path.join(path_out, f"{name}.negatives.seqdata")
+        generate = True
+        if os.path.exists(negatives_out):
+            if not overwrite:
+                logger.info("\tNegatives SeqData already exists. Set overwrite to true in config to overwrite.")
+                generate = False
+                logger.info(f"\tLoading existing SeqData from {os.path.basename(negatives_out)}")
+                sdata_neg = sd.open_zarr(negatives_out)
+        if generate:
+            logger.info(f"\tBuilding SeqData from negatives bed and bigwig files")
+            sdata_neg = sd.from_region_files(
+                sd.GenomeFASTA(
+                    seq_var,
+                    fasta,
+                    batch_size=batch_size,
+                    n_threads=threads,
+                ),
+                sd.BigWig(
+                    cov_var,
+                    bws,
+                    bw_names,
+                    batch_size=batch_size,
+                    n_jobs=threads,
+                    threads_per_job=len(bws),
+                ),
+                path=negatives_out,
+                fixed_length=fixed_length,
+                bed=negatives_bed,
+                overwrite=overwrite,
+                max_jitter=max_jitter,
+            )
+            sdata_neg["type"] = xr.DataArray(["negative"] * sdata_neg.dims["_sequence"], dims=["_sequence"])
+            sdata_neg.coords["_sequence"] = np.array([f"negative_{i}" for i in range(sdata_neg.dims["_sequence"])])
+            logger.info(f"\tSuccessfully loaded tracks for {sdata_neg.dims['_sequence']} negatives.")
 
         # Concatenate the two datasets
         logger.info("\tConcatenating positive and negative loci\n")
@@ -214,12 +240,17 @@ def main(
     #-------------- Save minimal SeqData --------------#
     
     # Save minimal SeqData
-    if os.path.exists(out.replace(".seqdata", ".minimal.seqdata")):
-        if overwrite:
-            sd.to_zarr(sdata, out.replace(".seqdata", ".minimal.seqdata"), mode="w")
-        else:
-            raise ValueError("Minimal SeqData already exists. Set overwrite to true in config to overwrite.")
-    logger.info(f"Saved minimal SeqData to {os.path.basename(out.replace('.seqdata', '.minimal.seqdata'))}\n")
+    minimal_out = os.path.join(path_out, f"{name}.minimal.seqdata")
+    generate = True        
+    if os.path.exists(minimal_out):
+        if not overwrite:
+            logger.info("Minimal SeqData already exists. Set overwrite to true in config to overwrite.")
+            generate = False
+            logger.info(f"\tLoading existing minimal SeqData from {os.path.basename(out.replace('.seqdata', '.minimal.seqdata'))}")
+            sdata = sd.open_zarr(minimal_out)
+    if generate:
+        sd.to_zarr(sdata, minimal_out, mode="w")
+        logger.info(f"Saved minimal SeqData to {minimal_out}\n")
 
     #-------------- OHE --------------#
     logger.info("--- One-hot encoding sequences ---\n")
@@ -465,17 +496,40 @@ def main(
 
     # Write full SeqData
     logger.info("Writing full SeqData")
-    if os.path.exists(out.replace(".seqdata", ".full.seqdata")):
-        if overwrite:
-            sd.to_zarr(sdata, out.replace(".seqdata", ".full.seqdata"), mode="w")
-        else:
-            raise ValueError("Full SeqData already exists. Set overwrite to true in config to overwrite.")
-    logger.info(f"Saved full SeqData to {os.path.basename(out.replace('.seqdata', '.full.seqdata'))}")
+    full_out = os.path.join(path_out, f"{name}.full.seqdata")
+    generate = True
+    if os.path.exists(full_out):
+        if not overwrite:
+            logger.info("Full SeqData already exists. Set overwrite to true in config to overwrite.")
+            generate = False
+    if generate:
+        sd.to_zarr(sdata, full_out, mode="w")        
+        logger.info(f"Saved full SeqData to {full_out}\n")
 
     # Write metadata
     logger.info("Writing metadata")
-    metadata.to_csv(out.replace(".seqdata", ".metadata.csv"))
+    metadata_out = os.path.join(path_out, f"{name}.metadata.csv")
+    metadata.to_csv(metadata_out)
     logger.info(f"Saved metadata to {os.path.basename(out.replace('.seqdata', '.metadata.csv'))}")
+
+    # TODO: Generate a static report
+    if report:
+        generate = True
+        if os.path.exists(out.replace(".seqdata", ".report.html")):
+            if not overwrite:
+                logger.info("Static report already exists. Set overwrite to true in config to overwrite.")
+                generate = False
+        if generate:
+            seq_df = sdata[["chrom", "chromStart", "chromEnd", "type", "length", "gc_percent", "total_counts"]].to_dataframe()
+            char_df = sdata["alphabet_cnt"].to_dataframe().reset_index()
+            char_df["_alphabet"]=char_df["_alphabet"].astype(str)
+            char_df = char_df.pivot(index="_sequence", columns="_alphabet", values="alphabet_cnt")
+            char_df["non_alphabet_cnt"] = sdata["non_alphabet_cnt"].values
+            char_df = char_df.div(sdata["length"].values, axis=0)
+            #assert np.allclose(char_df.sum(axis=1), 1)
+            seq_df = pd.concat([seq_df, char_df], axis=1)
+            path_report = generate_html_report(seq_df, path_out, f"{name}.report.html")
+            logger.info(f"Generated static report at {path_report}")
 
     # 
     logger.info("Done!")

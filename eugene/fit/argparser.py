@@ -30,6 +30,13 @@ def get_parent_parser() -> argparse.ArgumentParser:
         "If it does not exist, it will be created.",
     )
     parent_parser.add_argument(
+        "-r",
+        "--report",
+        dest="report",
+        action="store_true",
+        help="Including the flag --report will generate a report oof the trained model.",
+    )
+    parent_parser.add_argument(
         "-w",
         "--overwrite",
         dest="overwrite",
@@ -84,7 +91,7 @@ def add_subparser_args(subparsers: argparse._SubParsersAction) -> argparse.Argum
     # Create subparsers under "fit"
     subparser_commands = subparser.add_subparsers(
         title="sub-commands", 
-        description="Valid fit commands are 'bpnet-lite'", 
+        description="Valid fit commands are 'bpnet-lite', 'chrombpnet-lite', ", 
         dest="command",
         required=True,
     )
@@ -97,6 +104,13 @@ def add_subparser_args(subparsers: argparse._SubParsersAction) -> argparse.Argum
         "bpnet-lite",
         description="Fit a BPNet model to a dataset.",
         help="Fit a BPNet model to a dataset.",
+        parents=[parent_parser],  # Inherit from the parent parser
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    subparser_commands.add_parser(
+        "chrombpnet-lite",
+        description="Fit a ChromBPNet model to a dataset.",
+        help="Fit a ChromBPNet model to a dataset.",
         parents=[parent_parser],  # Inherit from the parent parser
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )

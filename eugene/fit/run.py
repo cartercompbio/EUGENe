@@ -48,6 +48,10 @@ def run_fit(args: argparse.Namespace):
         path_out = args.path_out
         logger.info(f"Output directory: {path_out}")
 
+        # Get report
+        report = args.report
+        logger.info(f"Report: {report}")
+
         # Get overwrite
         overwrite = args.overwrite
         logger.info(f"Overwrite: {overwrite}")
@@ -56,7 +60,12 @@ def run_fit(args: argparse.Namespace):
         if args.command == "bpnet-lite":
             logger.info("Subcommand 'bpnet-lite' detected. Training bpnet-lite model...")
             from eugene.fit.bpnet_lite import main
-            main(params, path_out, overwrite)
+            main(params, path_out, report, overwrite)
+
+        elif args.command == "chrombpnet-lite":
+            logger.info("Subcommand 'chrombpnet-lite' detected. Training chrombpnet-lite model...")
+            from eugene.fit.chrombpnet_lite import main
+            main(params, path_out, report, overwrite)
 
         # Log the end time
         logger.info("Completed fit")

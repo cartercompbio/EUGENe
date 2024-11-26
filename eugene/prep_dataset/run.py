@@ -52,16 +52,20 @@ def run_prep_dataset(args: argparse.Namespace):
         overwrite = args.overwrite
         logger.info(f"Overwrite: {overwrite}")
 
+        # Get report
+        report = args.report
+        logger.info(f"Report: {report}")
+
         # Get subcommand
         if args.command == "tabular":
             logger.info("Subcommand 'tabular' detected. Preparing tabular dataset...")
             from eugene.prep_dataset.tabular import main
-            main(params, path_out, overwrite)
+            main(params, path_out, report, overwrite)
 
         elif args.command == "tracks":
             logger.info("Subcommand 'tracks' detected. Preparing tracks dataset...")
             from eugene.prep_dataset.tracks import main
-            main(params, path_out, overwrite)
+            main(params, path_out, report, overwrite)
 
         # Log the end time
         logger.info("Completed prep-dataset")

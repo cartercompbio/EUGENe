@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from tangermeme.predict import predict
+from bpnetlite.chrombpnet import ChromBPNet
 from bpnetlite.bpnet import BPNet, CountWrapper, ProfileWrapper, ControlWrapper, _ProfileLogitScaling
 from tangermeme.deep_lift_shap import deep_lift_shap, _nonlinear
 import modiscolite
@@ -118,6 +119,16 @@ def main(
         training_data = sdata.isel(_sequence=training_idx)
         logger.info(f"# training seqs: {training_data.dims['_sequence']}")
 
+        # Sample neg_sampling_ratio negative sequences (type == "negative")
+        neg_sampling_ratio = params["seqdata"]["neg_sampling_ratio"]
+        if neg_sampling_ratio is not None:
+            logger.info(f"Sampling {neg_sampling_ratio} negative sequences")
+            neg_idx = np.where(sdata.type.values == "negative")[0]
+            loci_idx = np.where(sdata.type.values == "loci")[0]
+            neg_idx = np.random.choice(neg_idx, size=int(neg_sampling_ratio * len(loci_idx)), replace=False)
+            training_data = sdata.isel(_sequence=sorted(np.concatenate([loci_idx, neg_idx])))
+            logger.info(f"# training seqs after sampling negative sequences: {training_data.dims['_sequence']}")
+        
         # -------------- Filter the data --------------#
         logger.info("--- Filtering the data ---")
         logger.info(f"Filtering based on total counts between {min_counts} and {max_counts}")
@@ -136,27 +147,38 @@ def main(
         logger.info(f"# training seqs after filtering: {training_data.dims['_sequence']}\n")
 
         #-------------- Instantiate the model --------------#
-        logger.info("--- Instantiating a BPNet model ---")
+        print("--- Instantiating a ChromBPNet model ---")
         n_filters = params["model"]["n_filters"]
         n_layers = params["model"]["n_layers"]
         n_outputs = 1
         n_control_tracks = 0 if params["model"]["n_control_tracks"] is None else params["model"]["n_control_tracks"]
+        path_bias = params["model"]["bias_model"]
+
+        # Load the bias model
+        bias_model = torch.load(path_bias, map_location=device)
+
+        # Get alpha
         alpha = params["model"]["alpha"]
         if alpha is None:
-            logger.info("Computing counts loss weight")
+            print("Computing counts loss weight")
             alpha = np.median(training_counts[outlier_msk]) / 10
-            logger.info(f"Counts loss weight is {alpha}\n")
-        arch = BPNet(
+            print(f"Counts loss weight is {alpha}\n")
+
+        # Accessiblity model
+        accessibility_model = BPNet(
             n_filters=n_filters,
             n_layers=n_layers,
             n_outputs=n_outputs,
             n_control_tracks=n_control_tracks,
             trimming=trimming,
             alpha=alpha,
-            name=prefix,
+            name=prefix + ".accessibility",
             verbose=True,
         )
-        logger.info(arch)
+
+        # Full ChromBPNet model
+        arch = ChromBPNet(bias=bias_model, accessibility=accessibility_model, name=prefix)
+        logger.info(f"Full model: {arch}")
 
         #-------------- Train the model --------------#
         logger.info("--- Training the model ---")
@@ -251,7 +273,7 @@ def main(
         # log dataframe
         plot_training_curves(
             name=prefix + ".log", 
-            alpha=alpha,
+            alpha=arch.accessibility.alpha,
             ax=None,
             save=prefix + "_loss.png"
         )
@@ -366,11 +388,11 @@ def main(
             X = X[n_msk]
             n_idx = np.where(n_msk)[0]
             test_loci = test_loci.isel(_sequence=n_idx)
-            logger.info(f"Subsampled {subsample} loci with no non-alphabet characters")
+            logger.info(f"Subsampled {X.shape[0]} loci with no non-alphabet characters")
         
             # Get count attributions
             logger.info("Computing count attributions")
-            count_wrapper = CountWrapper(ControlWrapper(arch)).cuda().eval()
+            count_wrapper = CountWrapper(ControlWrapper(arch.accessibility)).cuda().eval()
             dtype = torch.float64
             X_attr_counts = deep_lift_shap(
                 count_wrapper.type(dtype), 
@@ -384,7 +406,7 @@ def main(
 
             # Get profile attributions
             logger.info("Computing profile attributions")
-            profile_wrapper = ProfileWrapper(ControlWrapper(arch)).cuda().eval()
+            profile_wrapper = ProfileWrapper(ControlWrapper(arch.accessibility)).cuda().eval()
             X_attr_profile = deep_lift_shap(
                 profile_wrapper.type(dtype), 
                 X.type(dtype),
