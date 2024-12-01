@@ -250,7 +250,7 @@ def main(
 
         # log dataframe
         plot_training_curves(
-            name=prefix + ".log", 
+            prefix + ".log", 
             alpha=alpha,
             ax=None,
             save=prefix + "_loss.png"

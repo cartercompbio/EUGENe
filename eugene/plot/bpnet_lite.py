@@ -40,7 +40,12 @@ def plot_training_curves(
 
     # Line plot of "Validation Count Pearson"
     ax[1].plot(log_df["Validation Count Pearson"], label="Validation Count Pearson")
-    ax[1].plot(log_df["Validation Profile Pearson"], label="Validation Profile Pearson")
+    if "Validation Profile Correlation" in log_df.columns:
+        ax[1].plot(log_df["Validation Profile Correlation"], label="Validation Profile Correlation")
+    elif "Validation Profile Pearson" in log_df.columns:
+        ax[1].plot(log_df["Validation Profile Pearson"], label="Validation Profile Pearson")
+    else:
+        raise ValueError(f"Expected 'Validation Profile Correlation' or 'Validation Profile Pearson' in {log_df.columns}")
 
     # Plot last point in both where "Saved?" is True
     last_saved = log_df[log_df["Saved?"] == True].index[-1]

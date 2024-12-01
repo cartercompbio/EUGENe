@@ -27,7 +27,7 @@ def merge_parameters(parameters, default_parameters):
         with open(parameters, "r") as infile:
             parameters = yaml.load(infile, Loader=yaml.FullLoader)
         
-    unset_parameters = ("ctrl_var", "n_control_tracks")
+    unset_parameters = ("ctrl_var", "n_control_tracks", "early_stopping")
     for parameter, value in default_parameters.items():
         
         # If the value itself is a dictionary, recursively merge

@@ -240,17 +240,9 @@ def main(
         # Get the validation data
         valid_idx = np.where(training_data[fold] == "valid")[0]
         valid_data = training_data.isel(_sequence=valid_idx)
-        if ctrl_var is None:
-            logger.info(f"Batch looks like: {batch[0].shape}, {batch[1].shape}")
-            X_ctl_valid = None
-        else:
-            logger.info(f"Batch looks like: {batch[0].shape}, {batch[1].shape}, {batch[2].shape}")
-            X_ctl_valid = torch.tensor(valid_data[ctrl_var].values[..., counts_start:counts_start + target_length], dtype=torch.float32)
         X_valid = torch.tensor(sp.ohe(valid_data[seq_var].values[:, seqs_start:seqs_start + seq_length], alphabet=sp.DNA).transpose(0, 2, 1), dtype=torch.float32)
         y_valid = torch.tensor(valid_data[cov_var].values[..., counts_start:counts_start + target_length], dtype=torch.float32)
         logger.info(f"Validation data shapes: {X_valid.shape}, {y_valid.shape}")
-        if X_ctl_valid is not None:
-            logger.info(f"Validation control data shape: {X_ctl_valid.shape}")
 
         # Move the model to the GPU and prepare the optimizer
         arch.cuda()
@@ -264,20 +256,12 @@ def main(
             optimizer,
             X_valid=X_valid,
             y_valid=y_valid,
-            X_ctl_valid=X_ctl_valid,
             max_epochs=max_epochs,
             validation_iter=validation_iter,
             early_stopping=early_stopping,
         )
 
-        # log dataframe
-        plot_training_curves(
-            name=prefix + ".log", 
-            alpha=arch.accessibility.alpha,
-            ax=None,
-            save=prefix + "_loss.png"
-        )
-
+    
     #-------------- Test data evaluation the model --------------#
     if "evaluation" in params:
         logger.info("--- Evaluating the model on test data ---")
@@ -286,6 +270,14 @@ def main(
         # Load the model
         logger.info("Loading best model from file")
         arch = torch.load(prefix + ".torch").cuda()
+
+        # log dataframe
+        plot_training_curves(
+            prefix + ".log", 
+            alpha=arch.accessibility.alpha,
+            ax=None,
+            save=prefix + "_loss.png"
+        )
 
         # Test data        
         test_idx = np.where(sdata[fold] == "test")[0]

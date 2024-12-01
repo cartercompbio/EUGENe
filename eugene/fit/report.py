@@ -38,8 +38,10 @@ def generate_html_report(
         if not os.path.exists(full_path):
             return ""
         table_html = open(full_path).read()
-        table_html = (table_html.replace("./", f"./{prefix}/")
-                                .replace("width=\"240\"", "width=\"240\", class=\"cover\"")
+        # Example ./K562_ATAC-seq_bias_fold_0_modisco_counts_report/
+        # path out is ./
+        # Prefix is K562_ATAC-seq_bias_fold_0
+        table_html = (table_html.replace("width=\"240\"", "width=\"240\", class=\"cover\"")
                                 .replace(">pos_patterns.pattern", ">pos_")
                                 .replace(">neg_patterns.pattern", ">neg_")
                                 .replace("modisco_cwm_fwd", "cwm_fwd")
