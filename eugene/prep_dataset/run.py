@@ -66,6 +66,11 @@ def run_prep_dataset(args: argparse.Namespace):
             logger.info("Subcommand 'tracks' detected. Preparing tracks dataset...")
             from eugene.prep_dataset.tracks import main
             main(params, path_out, report, overwrite)
+            
+        elif args.command == "regions":
+            logger.info("Subcommand 'regions' detected. Preparing regions dataset...")
+            from eugene.prep_dataset.regions import main
+            main(params, path_out, report, overwrite)
 
         # Log the end time
         logger.info("Completed prep-dataset")
