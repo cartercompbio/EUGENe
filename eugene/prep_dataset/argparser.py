@@ -91,7 +91,7 @@ def add_subparser_args(subparsers: argparse._SubParsersAction) -> argparse.Argum
     # Create subparsers under "prep-dataset"
     subparser_commands = subparser.add_subparsers(
         title="sub-commands", 
-        description="Valid prep-dataset commands are 'tabular', 'tracks', and 'regions_sets'", 
+        description="Valid prep-dataset commands are 'tabular', 'tracks', and 'regions'", 
         dest="command",
         required=True,
     )
@@ -111,6 +111,13 @@ def add_subparser_args(subparsers: argparse._SubParsersAction) -> argparse.Argum
         "tracks",
         description="Prepares a dataset from input regions and signal.",
         help="Prepares a dataset from input tracks files.",
+        parents=[parent_parser],  # Inherit from the parent parser
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    subparser_commands.add_parser(
+        "regions",
+        description="Prepares a dataset from input region files.",
+        help="Prepares a dataset from input region files.",
         parents=[parent_parser],  # Inherit from the parent parser
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
